@@ -1,0 +1,24 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  echoverse:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - echoverse_data:/app/data
+    ports:
+      - "8000:8000"
+
+volumes:
+  ollama_models:
+  echoverse_data:
