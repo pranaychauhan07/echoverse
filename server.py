@@ -6,9 +6,11 @@ persistent history. Run with:
 
 from __future__ import annotations
 
+import os
+import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -18,6 +20,16 @@ from echoverse.worker import submit_job
 
 VALID_TONES = {"neutral", "suspenseful", "inspiring"}
 
+# If ECHOVERSE_API_KEY is set (e.g. before exposing this over a tunnel),
+# every request must carry a matching X-API-Key header. Unset by default
+# for frictionless local dev.
+API_KEY = os.environ.get("ECHOVERSE_API_KEY")
+
+
+def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    if API_KEY and not (x_api_key and secrets.compare_digest(x_api_key, API_KEY)):
+        raise HTTPException(401, "missing or invalid X-API-Key header")
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -25,7 +37,17 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="EchoVerse", lifespan=lifespan)
+app = FastAPI(title="EchoVerse", lifespan=lifespan, dependencies=[Depends(require_api_key)])
+
+
+def _redact_job(job: dict) -> dict:
+    """Don't leak local filesystem paths (e.g. C:\\Users\\<name>\\...) to
+    API clients -- point them at the download endpoint instead."""
+    job = dict(job)
+    if job.get("audio_path"):
+        job["audio_url"] = f"/jobs/{job['id']}/audio"
+    job.pop("audio_path", None)
+    return job
 
 
 class JobRequest(BaseModel):
@@ -67,7 +89,7 @@ async def create_job_from_file(tone: str = "neutral", file: UploadFile = File(..
 
 @app.get("/jobs")
 def list_jobs(limit: int = 50) -> list[dict]:
-    return db.list_jobs(limit=limit)
+    return [_redact_job(j) for j in db.list_jobs(limit=limit)]
 
 
 @app.get("/stats")
@@ -84,7 +106,7 @@ def get_job(job_id: str) -> dict:
     job = db.get_job(job_id)
     if not job:
         raise HTTPException(404, "job not found")
-    return job
+    return _redact_job(job)
 
 
 @app.get("/jobs/{job_id}/audio")
