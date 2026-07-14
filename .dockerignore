@@ -1,0 +1,9 @@
+.venv
+.git
+.gitignore
+data/output/*.wav
+data/echoverse.db
+server.log
+__pycache__
+*.pyc
+.python-version

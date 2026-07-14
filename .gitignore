@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local runtime artifacts (regenerated, not source)
+data/output/*.wav
+data/echoverse.db
+server.log
+debug_out.txt
+
+# Piper voice models are large binaries fetched via a script, not committed
+voices/*.onnx
+voices/*.onnx.json
+
+# Local-only port remap for testing docker-compose alongside native processes
+docker-compose.override.yml
