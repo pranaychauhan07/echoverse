@@ -21,11 +21,41 @@ have been observed firing for real in testing, not just in theory.
 ## Stack (all $0)
 
 - **LLM**: [Ollama](https://ollama.com) running `llama3.2:3b` locally
-- **TTS**: [Piper](https://github.com/rhasspy/piper) (local, CPU-friendly)
+- **TTS**: [Piper](https://github.com/rhasspy/piper) (local, free forever) — or swap in ElevenLabs, see below
 - **Audio QA**: [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (local)
 - **Orchestration**: [LangGraph](https://github.com/langchain-ai/langgraph)
 - **API**: FastAPI, async job queue backed by SQLite
 - **Deploy**: Docker Compose, designed for Oracle Cloud's Always-Free ARM tier (see [DEPLOY.md](DEPLOY.md))
+
+## TTS engines
+
+Both engines support the same narrator/dialogue voice casting — the
+Voice-Casting agent splits text into roles, each backend just maps those
+roles to its own voice.
+
+| | Piper (default) | ElevenLabs |
+|---|---|---|
+| Cost | $0 forever | Free tier: 10,000 chars/month |
+| Runs | Locally | API call |
+| Expressiveness | Flat, robotic | Real emotional prosody |
+| Setup | `scripts/download_voices.sh` | API key required |
+
+To use ElevenLabs:
+
+```bash
+cp .env.example .env.local   # fill in ELEVENLABS_API_KEY
+export TTS_ENGINE=elevenlabs
+export ELEVENLABS_API_KEY=sk_...
+uv run python main.py --text "Your story here." --tone suspenseful
+```
+
+**Free-tier gotcha**: ElevenLabs free accounts can only use voices already
+in your account (the ~20 default "premade" voices every account gets),
+not the shared community voice library — using a library voice ID returns
+a `402 payment_required`. The defaults here ("George"/"Sarah") are two of
+those account-default voices. Override with `ELEVENLABS_NARRATOR_VOICE_ID`
+/ `ELEVENLABS_DIALOGUE_VOICE_ID` if you'd rather use different ones from
+your own account.
 
 ## Local setup
 

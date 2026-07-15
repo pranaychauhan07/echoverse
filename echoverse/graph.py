@@ -14,6 +14,7 @@ anything is considered "done".
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import TypedDict
@@ -28,6 +29,14 @@ from echoverse.agents.voice_casting import cast_segments
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "output"
 MAX_TTS_RETRIES = 1
+
+# "piper" (default, local, free-forever) or "elevenlabs" (opt-in, free
+# 10k-chars/month tier, real emotional prosody). Both support narrator/
+# dialogue voice casting via the same Voice-Casting agent.
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "piper").lower()
+if TTS_ENGINE not in ("piper", "elevenlabs"):
+    print(f"[warn] Unknown TTS_ENGINE={TTS_ENGINE!r}, falling back to 'piper'")
+    TTS_ENGINE = "piper"
 
 
 class PipelineState(TypedDict):
@@ -91,11 +100,19 @@ def node_tts(state: PipelineState) -> dict:
     t0 = time.perf_counter()
     out_path = OUTPUT_DIR / state["out_name"]
     full_text = " ".join(state["rewritten"])
+    print(f"[tts] engine={TTS_ENGINE} synthesizing -> {out_path} (attempt {state.get('tts_retries', 0) + 1})")
+
     segments = cast_segments(full_text)
-    voice_summary = ", ".join(sorted({s.voice_path.stem for s in segments}))
-    print(f"[voice-casting] {len(segments)} segment(s) across voices: {voice_summary}")
-    print(f"[tts] synthesizing -> {out_path} (attempt {state.get('tts_retries', 0) + 1})")
-    synthesize_cast_segments_to_wav(segments, out_path)
+    voice_summary = ", ".join(sorted({s.role for s in segments}))
+    print(f"[voice-casting] {len(segments)} segment(s) across roles: {voice_summary}")
+
+    if TTS_ENGINE == "elevenlabs":
+        from echoverse.agents.tts_elevenlabs import synthesize_cast_segments_to_wav as synthesize_elevenlabs
+
+        synthesize_elevenlabs(segments, out_path, tone=state["tone"])
+    else:
+        synthesize_cast_segments_to_wav(segments, out_path)
+
     prior = state["stage_seconds"].get("tts", 0.0)
     stage_seconds = {**state["stage_seconds"], "tts": prior + (time.perf_counter() - t0)}
     return {"audio_path": str(out_path), "stage_seconds": stage_seconds}

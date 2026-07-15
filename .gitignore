@@ -14,6 +14,7 @@ data/output/*.wav
 data/echoverse.db
 server.log
 debug_out.txt
+cloudflared.log
 
 # Piper voice models are large binaries fetched via a script, not committed
 voices/*.onnx
@@ -22,6 +23,7 @@ voices/*.onnx.json
 # Local-only port remap for testing docker-compose alongside native processes
 docker-compose.override.yml
 
-# Secrets -- never commit
+# Secrets -- never commit (but .env.example is a template, keep that)
 .env
 .env.*
+!.env.example

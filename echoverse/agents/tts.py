@@ -11,6 +11,12 @@ from piper import PiperVoice
 VOICES_DIR = Path(__file__).resolve().parent.parent.parent / "voices"
 DEFAULT_VOICE_MODEL = VOICES_DIR / "en_US-lessac-medium.onnx"
 
+# Voice-Casting agent role -> concrete Piper voice.
+ROLE_VOICES = {
+    "narrator": VOICES_DIR / "en_US-lessac-medium.onnx",
+    "dialogue": VOICES_DIR / "en_US-amy-medium.onnx",
+}
+
 _voice_cache: dict[str, PiperVoice] = {}
 
 
@@ -47,15 +53,15 @@ def synthesize_chunks_to_wav(texts: list[str], out_path: str | Path, model_path:
 
 
 def synthesize_cast_segments_to_wav(segments: list, out_path: str | Path) -> Path:
-    """Synthesize a list of `VoiceSegment` (voice_path, text) into a single
-    stitched .wav, switching voices per segment. All bundled Piper voices
-    are 22050Hz mono, so segments concatenate cleanly into one WAV format."""
+    """Synthesize a list of `VoiceSegment` (role, text) into a single
+    stitched .wav, switching voices per segment role. All bundled Piper
+    voices are 22050Hz mono, so segments concatenate cleanly into one WAV."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with wave.open(str(out_path), "wb") as wav_file:
         for i, seg in enumerate(segments):
-            voice = _get_voice(seg.voice_path)
+            voice = _get_voice(ROLE_VOICES.get(seg.role, DEFAULT_VOICE_MODEL))
             voice.synthesize_wav(seg.text, wav_file, set_wav_format=(i == 0))
 
     return out_path
